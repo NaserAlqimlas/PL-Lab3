@@ -65,6 +65,23 @@ class Lab3Spec(lab3: Lab3Like) extends FlatSpec {
     assert(substitute(shadowx, N(2), "x") === Binary(Plus, constx3, N(2)))
   }
 
+  {
+    val one = parse("1")
+
+    "iterate" should "stop if the callback body returns None" in {
+      assertResult(one) {
+        iterate(one) { (_, _) => None }
+      }
+    }
+
+    it should "increment the loop counter on each iteration and use e if the callback body returns Some(e)" in {
+      assertResult(parse("--1")) {
+        iterate(one) { (e: Expr, n: Int) =>
+          if (n == 2) None else Some(Unary(Neg, e))
+        }
+      }
+    }
+  }
 
   /* Tests based on rules */
 

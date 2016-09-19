@@ -23,6 +23,7 @@ trait Lab3Like { a: JsyApplication =>
 
   def eval(env: Env, e: Expr): Expr
 
+  def iterate(e0: Expr)(body: (Expr, Int) => Option[Expr]): Expr
   def substitute(e: Expr, v: Expr, x: String): Expr
   def step(e: Expr): Expr
 
@@ -49,18 +50,15 @@ trait Lab3Like { a: JsyApplication =>
     * and print out the steps of evaluation if debugging. */
   def iterateStep(e: Expr): Expr = {
     require(closed(e))
-    def loop(e: Expr, n: Int): Expr = {
-      if (debug) { println("Step %s: %s".format(n, e)) }
-      if (isValue(e)) e else loop(step(e), n + 1)
-    }
     if (debug) {
       println("------------------------------------------------------------")
       println("Evaluating with step ...")
     }
-    val v = loop(e, 0)
-    if (debug) {
-      println("Value: " + v)
+    val v = iterate(e) { (e: Expr, n: Int) =>
+      if (debug) { println(s"Step $n: $e") }
+      if (isValue(e)) None else Some(step(e))
     }
+    if (debug) { println("Value: " + v) }
     v
   }
 

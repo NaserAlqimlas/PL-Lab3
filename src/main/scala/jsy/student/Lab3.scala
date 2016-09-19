@@ -4,7 +4,6 @@ import jsy.lab3.Lab3Like
 import jsy.util.JsyApplication
 
 object Lab3 extends JsyApplication with Lab3Like {
-  import jsy.lab3.Parser
   import jsy.lab3.ast._
   
   /*
@@ -111,6 +110,11 @@ object Lab3 extends JsyApplication with Lab3Like {
     
 
   /* Small-Step Interpreter with Static Scoping */
+
+  def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
+    def loop(e: Expr, n: Int): Expr = ???
+    loop(e0, 0)
+  }
   
   def substitute(e: Expr, v: Expr, x: String): Expr = {
     require(isValue(v))
@@ -145,7 +149,7 @@ object Lab3 extends JsyApplication with Lab3Like {
       case N(_) | B(_) | Undefined | S(_) | Function(_, _, _) => throw new AssertionError("Gremlins: internal error, step should not be called on values.");
     }
   }
-  
+
 
   /* External Interfaces */
   
