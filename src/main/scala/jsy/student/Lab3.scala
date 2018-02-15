@@ -42,10 +42,10 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v))
     (v: @unchecked) match {
       case N(n) => n
-      case B(false) => ???
-      case B(true) => ???
-      case Undefined => ???
-      case S(s) => ???
+      case B(false) => 1.0
+      case B(true) => 0.0
+      case Undefined => Double.NaN
+      case S(s) => try {s.toDouble} catch { case _ => Double.NaN}
       case Function(_, _, _) => Double.NaN
     }
   }
@@ -55,6 +55,11 @@ object Lab3 extends JsyApplication with Lab3Like {
     (v: @unchecked) match {
       case B(b) => b
       case Function(_, _, _) => true
+      case Undefined => false
+      case N(0) => false
+      case N(n) => if(n.isNaN) false else true
+      case S("") => false
+      case S(s) => true
       case _ => ??? // delete this line when done
     }
   }
@@ -66,7 +71,10 @@ object Lab3 extends JsyApplication with Lab3Like {
         // Here in toStr(Function(_, _, _)), we will deviate from Node.js that returns the concrete syntax
         // of the function (from the input program).
       case Function(_, _, _) => "function"
-      case _ => ??? // delete this line when done
+      case _ => ??? //delete this line when done
+      case Undefined => "undefined"
+      case B(b) => if(b) "true" else "false"
+      case N(n) => prettyNumber(n)
     }
   }
 
@@ -82,7 +90,21 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v2))
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
-      case _ => ??? // delete this line when done
+      case (S(str1), S(str2)) =>  //handles string comparison
+        bop match {
+          case Lt => str1 < str2
+          case Le => str1 <= str2
+          case Gt => str1 > str2
+          case Ge => str1 >= str2
+        }
+      case _ =>
+        val (n1, n2) = (toNumber(v1), toNumber(v2)) //turning v1,v2 into nmbrs
+        bop match {
+          case Lt => n1 < n2
+          case Le => n1 <= n2
+          case Gt => n1 > n2
+          case Ge => n1 >= n2
+        }
     }
   }
 
@@ -96,7 +118,7 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases */
       case N(_) | B(_) | S(_) | Undefined | Function(_, _, _) => e
-      case Var(x) => ???
+      case Var(x) => lookup(env, x)
       
       /* Inductive Cases */
       case Print(e1) => println(pretty(eval(env, e1))); Undefined
@@ -128,7 +150,7 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Var(y) => ???
       case Function(None, y, e1) => ???
       case Function(Some(y1), y2, e1) => ???
-      case ConstDecl(y, e1, e2) => ???
+      case ConstDecl(y, e1, e2) => eval(extend(env, y, eval(env, e1)), e2) //need to take a look at this, took implementation from lab2
     }
   }
     
