@@ -42,10 +42,17 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v))
     (v: @unchecked) match {
       case N(n) => n
-      case B(false) => ???
-      case B(true) => ???
-      case Undefined => ???
-      case S(s) => ???
+      case B(b)=> if (b) 1 else 0
+      case S("") => 0
+      case  S(s) => {
+        try {
+          s.toDouble
+        }
+        catch {
+          case e:java.lang.NumberFormatException  => Double.NaN
+        }
+      }
+      case Undefined => Double.NaN
       case Function(_, _, _) => Double.NaN
     }
   }
@@ -54,8 +61,13 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v))
     (v: @unchecked) match {
       case B(b) => b
+      case N(n)=> n match{
+        case Double.NaN => false
+        case _ => n!=0
+      }
+      case S(s)=> s!=""
+      case Undefined => false
       case Function(_, _, _) => true
-      case _ => ??? // delete this line when done
     }
   }
   
@@ -63,10 +75,11 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v))
     (v: @unchecked) match {
       case S(s) => s
+      case Undefined => "undefined"
+      case Function(_, _, _) => "function"
+      case _ => pretty(v)
         // Here in toStr(Function(_, _, _)), we will deviate from Node.js that returns the concrete syntax
         // of the function (from the input program).
-      case Function(_, _, _) => "function"
-      case _ => ??? // delete this line when done
     }
   }
 
@@ -81,8 +94,47 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v1))
     require(isValue(v2))
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
-    (v1, v2) match {
-      case _ => ??? // delete this line when done
+    (bop: @unchecked) match {
+      case Lt => (v1, v2) match
+      {
+        case (S(s1), S(s2)) => toStr(S(s1)) < toStr(S(s2))
+        case _ =>{
+          val v1Num = toNumber(v1)
+          val v2Num = toNumber(v2)
+          v1Num < v2Num
+        }
+      }
+
+      case Le => (v1, v2) match
+      {
+        case (S(s1), S(s2)) => toStr(S(s1)) <= toStr(S(s2))
+        case _ =>{
+          val v1Num = toNumber(v1)
+          val v2Num = toNumber(v2)
+          v1Num <= v2Num
+        }
+      }
+
+      case Gt => (v1, v2) match
+      {
+        case (S(s1), S(s2)) => toStr(S(s1)) > toStr(S(s2))
+        case _ =>{
+          val v1Num = toNumber(v1)
+          val v2Num = toNumber(v2)
+          v1Num > v2Num
+        }
+      }
+
+      case Ge => (v1, v2) match
+      {
+        case (S(s1), S(s2)) => toStr(S(s1)) >= toStr(S(s2))
+        case _ =>{
+          val v1Num = toNumber(v1)
+          val v2Num = toNumber(v2)
+          v1Num >= v2Num
+        }
+      }
+
     }
   }
 
@@ -96,15 +148,111 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases */
       case N(_) | B(_) | S(_) | Undefined | Function(_, _, _) => e
-      case Var(x) => ???
-      
+      case Var(x) => env(x)
+
       /* Inductive Cases */
-      case Print(e1) => println(pretty(eval(env, e1))); Undefined
+      case Print(e1) => e1 match {
+        case Function(_, _, _) => throw DynamicTypeError(e1)
+        case _ => println(pretty(eval(env, e1))); Undefined
+      }
 
-        // ****** Your cases here
+      case ConstDecl(x, e1, e2) => (e1, e2) match {
+        case _ => eval(env + (x -> eval(env, e1)), e2)
+      }
 
-      case Call(e1, e2) => ???
-      case _ => ??? // delete this line when done
+      case Unary(uop, e1) =>
+        e1 match {
+          case Function(_, _, _) => throw DynamicTypeError(e1)
+
+          case _ => uop match {
+
+            case Neg => N(-toNumber(eval(env, e1)))
+
+            case Not => B(!toBoolean(eval(env, e1)))
+          }
+        }
+
+
+      case Binary(bop, e1, e2) => {
+        (e1, e2) match {
+          case (Function(p, x,ex),_) => throw DynamicTypeError(e1)
+          case (_, Function(_,_,_)) => throw DynamicTypeError(e2)
+          case (_, _) => {
+
+            val v1 = eval(env, e1)
+            val v2 = eval(env, e2)
+            bop match {
+
+              case Plus => (v1, v2) match {
+                case (S(s), _) => S(s + toStr(v2))
+                case (_, S(s)) => S(toStr(v1) + s)
+                case _ => N(toNumber(v1) + toNumber(v2))
+              }
+
+              case Minus => N(toNumber(v1) - toNumber(v2))
+
+              case Times => N(toNumber(v1) * toNumber((v2)))
+
+              case Div => (toNumber(v1), toNumber(v2)) match {
+                case (Double.NaN, _) => N(Double.NaN)
+                case (_, Double.NaN) => N(Double.NaN)
+                case (0, 0) => N(Double.NaN)
+                case (n, 0) if n < 0 => N(Double.NegativeInfinity)
+                case (n, 0) => N(Double.PositiveInfinity)
+                case (n, v) => N(n / v)
+              }
+
+              case And => if (toBoolean(v1)) v2 else v1
+
+              case Or => if (toBoolean(v1)) v1 else v2
+
+              case Ne => B(v1 != v2)
+
+              case Eq => B(v1 == v2)
+
+              case Seq => {
+                v2
+              }
+
+              case _ => B(inequalityVal(bop, v1, v2))
+
+            }
+          }
+        }
+      }
+      case If(e1, e2, e3) => (e1,e2,e3)match{
+
+        case (Function(_,_,_), _, _) => throw DynamicTypeError(e1)
+
+        case _ => if (toBoolean(eval(env, e1))) eval(env, e2) else eval(env, e3)
+
+      }
+
+      case Call(e1, e2) => {
+        e1 match {
+          case Function(None, x, eToDo) => {
+
+            val const: Expr = ConstDecl(x, e2, eToDo)
+            eval(env, const)
+          }
+
+          case Function(Some(name), x, eToDo) => {
+              val newEnv = env + (name -> Function(None, x, eToDo))
+              val const: Expr = ConstDecl(x, e2, eToDo)
+              eval(newEnv, const)
+            }
+
+
+          case Var(f) => env(f) match {
+            case Function(n,z,e5) => eval(env, Call(Function(n,z,e5), e2))
+            case _ => throw DynamicTypeError(e1)
+          }
+
+          case _ => throw DynamicTypeError(e1)
+
+        }
+
+      }
     }
   }
     
@@ -112,23 +260,26 @@ object Lab3 extends JsyApplication with Lab3Like {
   /* Small-Step Interpreter with Static Scoping */
 
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
-    def loop(e: Expr, n: Int): Expr = ???
+    def loop(e: Expr, n: Int): Expr = next(e,n) match {
+      case None => e
+      case Some(ep) => loop(ep, n+1)
+    }
     loop(e0, 0)
   }
-  
+
   def substitute(e: Expr, v: Expr, x: String): Expr = {
     require(isValue(v))
     e match {
       case N(_) | B(_) | Undefined | S(_) => e
       case Print(e1) => Print(substitute(e1, v, x))
-      case Unary(uop, e1) => ???
-      case Binary(bop, e1, e2) => ???
-      case If(e1, e2, e3) => ???
+      case Unary(uop, e1) => Unary(uop, substitute(e1, v, x))
+      case Binary(bop, e1, e2) => Binary(bop, substitute(e1, v, x), substitute(e2, v, x))
+      case If(e1, e2, e3) => If(substitute(e1, v, x), substitute(e2, v, x), substitute(e3, v, x))
       case Call(e1, e2) => ???
-      case Var(y) => ???
-      case Function(None, y, e1) => ???
-      case Function(Some(y1), y2, e1) => ???
-      case ConstDecl(y, e1, e2) => ???
+      case Var(y) => if (y==x) v else Var(y)
+      case Function(None, y, e1) =>  if (y==x) Function(None, y, e1) else Function(None, y, substitute(e1, v, x))
+      case Function(Some(y1), y2, e1) => if (y1==x || y2==x) Function(Some(y1), y2, e1) else Function(Some(y1), y2, substitute(e1, v, x))
+      case ConstDecl(y, e1, e2) => if (y == x) ConstDecl(y, substitute(e1, v, x), e2) else ConstDecl(y, substitute(e1, v, x), substitute(e2, v,x))
     }
   }
     
@@ -136,8 +287,15 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
-      
-        // ****** Your cases here
+
+      case Unary(uop, e1) => {
+        val isValueE1 = isValue(e1)
+        uop match{
+          case neg => {
+            if (isValueE1) N(-toNumber(e1)) else Unary(uop, step(e1))
+          }
+        }
+    }
       
       /* Inductive Cases: Search Rules */
       case Print(e1) => Print(step(e1))
