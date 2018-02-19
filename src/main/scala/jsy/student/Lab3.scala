@@ -275,7 +275,10 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Unary(uop, e1) => Unary(uop, substitute(e1, v, x))
       case Binary(bop, e1, e2) => Binary(bop, substitute(e1, v, x), substitute(e2, v, x))
       case If(e1, e2, e3) => If(substitute(e1, v, x), substitute(e2, v, x), substitute(e3, v, x))
-      case Call(e1, e2) => ???
+      case Call(e1, e2) => e1 match{
+        case Function(s, z, eToDo) => if (z==x) Call(e1, substitute(e2, v, x)) else Call(substitute(eToDo, v, x), substitute(eToDo, v, x))
+        case _ => throw DynamicTypeError(e1)
+      }
       case Var(y) => if (y==x) v else Var(y)
       case Function(None, y, e1) =>  if (y==x) Function(None, y, e1) else Function(None, y, substitute(e1, v, x))
       case Function(Some(y1), y2, e1) => if (y1==x || y2==x) Function(Some(y1), y2, e1) else Function(Some(y1), y2, substitute(e1, v, x))
@@ -293,6 +296,9 @@ object Lab3 extends JsyApplication with Lab3Like {
         uop match{
           case neg => {
             if (isValueE1) N(-toNumber(e1)) else Unary(uop, step(e1))
+          }
+          case not =>{
+            if (isValueE1) B(!toBoolean(e1)) else Unary(uop, step(e1))
           }
         }
     }
