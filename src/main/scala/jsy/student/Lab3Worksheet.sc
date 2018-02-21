@@ -24,8 +24,10 @@ parse("x => { const z = 3; return x + z }")
 parse("function (x) { const z = 3; return x + z }")
 
 
-val x = (Some("f").toString)
-x
 
-2(3)
+
+val envMap = Map("1" -> 2)
+
+envMap("2")
+
 

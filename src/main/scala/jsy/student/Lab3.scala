@@ -1,6 +1,6 @@
 package jsy.student
 
-import jsy.lab3.Lab3Like
+import jsy.lab3.{Lab3Like, ast}
 import jsy.util.JsyApplication
 
 object Lab3 extends JsyApplication with Lab3Like {
@@ -44,14 +44,14 @@ object Lab3 extends JsyApplication with Lab3Like {
       case N(n) => n
       case B(b)=> if (b) 1 else 0
       case S("") => 0
-      case  S(s) => {
+      case  S(s) =>
         try {
           s.toDouble
         }
         catch {
           case e:java.lang.NumberFormatException  => Double.NaN
         }
-      }
+
       case Undefined => Double.NaN
       case Function(_, _, _) => Double.NaN
     }
@@ -98,41 +98,41 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Lt => (v1, v2) match
       {
         case (S(s1), S(s2)) => toStr(S(s1)) < toStr(S(s2))
-        case _ =>{
+        case _ =>
           val v1Num = toNumber(v1)
           val v2Num = toNumber(v2)
           v1Num < v2Num
         }
-      }
+
 
       case Le => (v1, v2) match
       {
         case (S(s1), S(s2)) => toStr(S(s1)) <= toStr(S(s2))
-        case _ =>{
+        case _ =>
           val v1Num = toNumber(v1)
           val v2Num = toNumber(v2)
           v1Num <= v2Num
-        }
+
       }
 
       case Gt => (v1, v2) match
       {
         case (S(s1), S(s2)) => toStr(S(s1)) > toStr(S(s2))
-        case _ =>{
+        case _ =>
           val v1Num = toNumber(v1)
           val v2Num = toNumber(v2)
           v1Num > v2Num
-        }
+
       }
 
       case Ge => (v1, v2) match
       {
         case (S(s1), S(s2)) => toStr(S(s1)) >= toStr(S(s2))
-        case _ =>{
+        case _ =>
           val v1Num = toNumber(v1)
           val v2Num = toNumber(v2)
           v1Num >= v2Num
-        }
+
       }
 
     }
@@ -148,111 +148,96 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases */
       case N(_) | B(_) | S(_) | Undefined | Function(_, _, _) => e
-      case Var(x) => env(x)
+      case Var(x) => try{env(x)} catch{case e: java.util.NoSuchElementException => throw new NoSuchElementException("key not found: " + x)}
 
       /* Inductive Cases */
       case Print(e1) => e1 match {
-        case Function(_, _, _) => throw DynamicTypeError(e1)
         case _ => println(pretty(eval(env, e1))); Undefined
       }
 
-      case ConstDecl(x, e1, e2) => (e1, e2) match {
-        case _ => eval(env + (x -> eval(env, e1)), e2)
-      }
+      case ConstDecl(x, e1, e2) => eval(env + (x -> eval(env, e1)), e2)
 
-      case Unary(uop, e1) =>
-        e1 match {
-          case Function(_, _, _) => throw DynamicTypeError(e1)
 
-          case _ => uop match {
-
+      case Unary(uop, e1) => uop match {
             case Neg => N(-toNumber(eval(env, e1)))
 
             case Not => B(!toBoolean(eval(env, e1)))
           }
-        }
+
+      case Binary(bop, e1, e2) => bop match {
+              case And =>
+                val v1 = eval(env, e1)
+                if (toBoolean(v1)) eval(env, e2) else v1
 
 
-      case Binary(bop, e1, e2) => {
-        (e1, e2) match {
-          case (Function(p, x,ex),_) => throw DynamicTypeError(e1)
-          case (_, Function(_,_,_)) => throw DynamicTypeError(e2)
-          case (_, _) => {
+              case Or =>
+                val v1 = eval(env, e1)
+                if (toBoolean(v1)) v1 else eval(env, e2)
 
-            val v1 = eval(env, e1)
-            val v2 = eval(env, e2)
-            bop match {
 
-              case Plus => (v1, v2) match {
-                case (S(s), _) => S(s + toStr(v2))
-                case (_, S(s)) => S(toStr(v1) + s)
-                case _ => N(toNumber(v1) + toNumber(v2))
-              }
+              case _ =>
+                val v1 = eval(env, e1)
+                val v2 = eval(env, e2)
+                (bop: @unchecked) match {
 
-              case Minus => N(toNumber(v1) - toNumber(v2))
+                  case Plus => (v1, v2) match {
+                    case (S(s), _) => S(s + toStr(v2))
+                    case (_, S(s)) => S(toStr(v1) + s)
+                    case _ => N(toNumber(v1) + toNumber(v2))
+                  }
 
-              case Times => N(toNumber(v1) * toNumber((v2)))
+                  case Minus => N(toNumber(v1) - toNumber(v2))
 
-              case Div => (toNumber(v1), toNumber(v2)) match {
-                case (Double.NaN, _) => N(Double.NaN)
-                case (_, Double.NaN) => N(Double.NaN)
-                case (0, 0) => N(Double.NaN)
-                case (n, 0) if n < 0 => N(Double.NegativeInfinity)
-                case (n, 0) => N(Double.PositiveInfinity)
-                case (n, v) => N(n / v)
-              }
+                  case Times => N(toNumber(v1) * toNumber(v2))
 
-              case And => if (toBoolean(v1)) v2 else v1
+                  case Div => (toNumber(v1), toNumber(v2)) match {
+                    case (Double.NaN, _) => N(Double.NaN)
+                    case (_, Double.NaN) => N(Double.NaN)
+                    case (0, 0) => N(Double.NaN)
+                    case (n, 0) if n < 0 => N(Double.NegativeInfinity)
+                    case (n, 0) => N(Double.PositiveInfinity)
+                    case (n, v) => N(n / v)
+                  }
 
-              case Or => if (toBoolean(v1)) v1 else v2
+                  case Ne =>(v1, v2) match {
+                    case (Function(_, _, _), _) => throw DynamicTypeError(e)
+                    case (_, Function(_, _, _)) => throw DynamicTypeError(e)
+                    case (_, _) => B(v1 != v2)
+                  }
 
-              case Ne => B(v1 != v2)
+                  case Eq => (v1, v2) match {
+                    case (Function(_, _, _), _) => throw DynamicTypeError(e)
+                    case (_, Function(_, _, _)) => throw DynamicTypeError(e)
+                    case (_, _) => B(v1 == v2)
+                  }
 
-              case Eq => B(v1 == v2)
+                  case Seq => v2
 
-              case Seq => {
-                v2
-              }
 
-              case _ => B(inequalityVal(bop, v1, v2))
+                  case _ => B(inequalityVal(bop, v1, v2))
 
-            }
-          }
-        }
-      }
-      case If(e1, e2, e3) => (e1,e2,e3)match{
-
-        case (Function(_,_,_), _, _) => throw DynamicTypeError(e1)
-
-        case _ => if (toBoolean(eval(env, e1))) eval(env, e2) else eval(env, e3)
-
-      }
-
-      case Call(e1, e2) => {
-        e1 match {
-          case Function(None, x, eToDo) => {
-
-            val const: Expr = ConstDecl(x, e2, eToDo)
-            eval(env, const)
-          }
-
-          case Function(Some(name), x, eToDo) => {
-              val newEnv = env + (name -> Function(None, x, eToDo))
-              val const: Expr = ConstDecl(x, e2, eToDo)
-              eval(newEnv, const)
+                }
             }
 
 
-          case Var(f) => env(f) match {
-            case Function(n,z,e5) => eval(env, Call(Function(n,z,e5), e2))
-            case _ => throw DynamicTypeError(e1)
-          }
 
-          case _ => throw DynamicTypeError(e1)
+      case If(e1, e2, e3) => if (toBoolean(eval(env, e1))) eval(env, e2) else eval(env, e3)
+
+      case Call(e1, e2) =>
+
+        val v1 = eval(env, e1)
+        val v2 = eval(env, e2)
+
+        v1 match {
+          case Function(None, x, eToDo) => eval(env+(x -> v2), eToDo)
+
+          case Function(Some(name),x,eToDo) => eval((env + (x -> v2)) + (name -> Function(None, x, eToDo)), eToDo)
+
+          case _ => throw DynamicTypeError(e)
 
         }
 
-      }
+
     }
   }
     
@@ -271,17 +256,30 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v))
     e match {
       case N(_) | B(_) | Undefined | S(_) => e
+
       case Print(e1) => Print(substitute(e1, v, x))
+
       case Unary(uop, e1) => Unary(uop, substitute(e1, v, x))
+
       case Binary(bop, e1, e2) => Binary(bop, substitute(e1, v, x), substitute(e2, v, x))
+
       case If(e1, e2, e3) => If(substitute(e1, v, x), substitute(e2, v, x), substitute(e3, v, x))
+
       case Call(e1, e2) => e1 match{
-        case Function(s, z, eToDo) => if (z==x) Call(e1, substitute(e2, v, x)) else Call(substitute(eToDo, v, x), substitute(eToDo, v, x))
-        case _ => throw DynamicTypeError(e1)
+
+        case Function(_, z, eToDo) => if (z==x) Call(e1, substitute(e2, v, x)) else Call(substitute(eToDo, v, x), substitute(eToDo, v, x))
+
+        case _ if !isValue(e1) => Call(substitute(e1, v, x), e2)
+
+        case _ => throw DynamicTypeError(e)
       }
+
       case Var(y) => if (y==x) v else Var(y)
+
       case Function(None, y, e1) =>  if (y==x) Function(None, y, e1) else Function(None, y, substitute(e1, v, x))
+
       case Function(Some(y1), y2, e1) => if (y1==x || y2==x) Function(Some(y1), y2, e1) else Function(Some(y1), y2, substitute(e1, v, x))
+
       case ConstDecl(y, e1, e2) => if (y == x) ConstDecl(y, substitute(e1, v, x), e2) else ConstDecl(y, substitute(e1, v, x), substitute(e2, v,x))
     }
   }
@@ -291,22 +289,138 @@ object Lab3 extends JsyApplication with Lab3Like {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
 
-      case Unary(uop, e1) => {
-        val isValueE1 = isValue(e1)
-        uop match{
-          case neg => {
-            if (isValueE1) N(-toNumber(e1)) else Unary(uop, step(e1))
+      case Unary(uop, e1) if isValue(e1) => uop match {
+        case Neg => N(-toNumber(e1))
+
+        case Not => B(!toBoolean(e1))
+      }
+
+      case Binary(bop, e1, e2) if isValue(e1) && !isValue(e2) && (bop == And || bop == Or || bop == Seq) => bop match {
+
+        case And => if (toBoolean(e1)) e2 else e1
+
+        case Or => if (toBoolean(e1)) e1 else e2
+
+        case Seq => e2
+      }
+
+      case Binary(bop, Function(_,_,_), _) if bop == Eq || bop == Ne => throw DynamicTypeError(e)
+
+      case Binary(bop, e1, e2) if isValue(e1) && isValue(e2) => bop match {
+
+          case Plus => (e1, e2) match {
+            case (S(s), _) => S(s + toStr(e2))
+            case (_, S(s)) => S(toStr(e1) + s)
+            case _ => N(toNumber(e1) + toNumber(e2))
           }
-          case not =>{
-            if (isValueE1) B(!toBoolean(e1)) else Unary(uop, step(e1))
+
+          case Minus => N(toNumber(e1) - toNumber(e2))
+
+          case Times => N(toNumber(e1) * toNumber(e2))
+
+          case Div => (toNumber(e1), toNumber(e2)) match {
+                  case (Double.NaN, _) => N(Double.NaN)
+                  case (_, Double.NaN) => N(Double.NaN)
+                  case (0, 0) => N(Double.NaN)
+                  case (n, 0) if n < 0 => N(Double.NegativeInfinity)
+                  case (n, 0) => N(Double.PositiveInfinity)
+                  case (n, v) => N(n / v)
+                }
+
+          case Eq => e2 match {
+            case Function(_, _, _) => throw DynamicTypeError(e)
+            case _ => B(e1 == e2)
           }
+
+          case Ne => e2 match{
+            case Function(_,_,_) => throw DynamicTypeError(e)
+            case _ => B(e1 != e2)
+          }
+
+          case And => if (toBoolean(e1)) e2 else e1
+
+          case Or => if (toBoolean(e1)) e1 else e2
+
+          case Gt => (e1, e2) match {
+              case (S(s1), S(s2)) => B(toStr(S(s1)) > toStr(S(s2)))
+              case _ =>
+                val v1Num = toNumber(e1)
+                val v2Num = toNumber(e2)
+                B(v1Num > v2Num)
+
+            }
+
+          case Lt => (e1, e2) match {
+              case (S(s1), S(s2)) => B(toStr(S(s1)) < toStr(S(s2)))
+              case _ =>
+                val v1Num = toNumber(e1)
+                val v2Num = toNumber(e2)
+                B(v1Num < v2Num)
+
+            }
+
+          case Le => (e1, e2) match {
+              case (S(s1), S(s2)) => B(toStr(S(s1)) <= toStr(S(s2)))
+              case _ =>
+                val v1Num = toNumber(e1)
+                val v2Num = toNumber(e2)
+                B(v1Num <= v2Num)
+
+            }
+
+          case Ge => (e1, e2) match {
+              case (S(s1), S(s2)) => B(toStr(S(s1)) >= toStr(S(s2)))
+              case _ =>
+                val v1Num = toNumber(e1)
+                val v2Num = toNumber(e2)
+                B(v1Num >= v2Num)
+
+            }
+
+          case Seq => e2
+
         }
-    }
-      
+      case If(e1, e2, e3) if isValue(e1)=>
+        if (toBoolean(e1)) e2 else e3
+
+      case ConstDecl(x, e1, e2) if isValue(e1) => substitute(e2, e1, x)
+
+      case Call(e1, e2) if isValue(e1) && isValue(e2) => e1 match {
+
+        case Function(Some(funcName), x, eToDo) =>
+          substitute(substitute(eToDo, Function(Some(funcName), x, eToDo), funcName), e2, x)
+
+        case Function(None, x, eToDo) =>
+          substitute(eToDo, e2, x)
+
+        case _ => throw DynamicTypeError(e)
+      }
+
+
       /* Inductive Cases: Search Rules */
       case Print(e1) => Print(step(e1))
-      
-        // ****** Your cases here
+
+      // ****** Your cases here
+
+      case Unary(uop, e1) => Unary(uop, step(e1))
+
+      case Binary(bop, e1, e2) =>
+        if (isValue(e1) && !isValue(e2)) Binary(bop, e1, step(e2))
+        else Binary(bop, step(e1), e2)
+
+      case If(e1, e2, e3) => If(step(e1), e2, e3)
+
+      case ConstDecl(x, e1, e2) => ConstDecl(x, step(e1), e2)
+
+      case Call(e1, e2) =>
+        if (isValue(e1) && !isValue(e2)) {
+          e1 match {
+            case Function(_, _, _) => Call(e1, step(e2))
+            case _ => throw DynamicTypeError(e)
+          }
+        }
+
+        else Call(step(e1), e2)
 
       /* Cases that should never match. Your cases above should ensure this. */
       case Var(_) => throw new AssertionError("Gremlins: internal error, not closed expression.")
