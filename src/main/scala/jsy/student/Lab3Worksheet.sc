@@ -26,8 +26,6 @@ parse("function (x) { const z = 3; return x + z }")
 
 
 
-val envMap = Map("1" -> 2)
-
-envMap("2")
+1 >= Double.NaN
 
 

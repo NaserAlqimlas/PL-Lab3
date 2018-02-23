@@ -226,18 +226,15 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Call(e1, e2) =>
 
         val v1 = eval(env, e1)
-        val v2 = eval(env, e2)
+
 
         v1 match {
-          case Function(None, x, eToDo) => eval(env+(x -> v2), eToDo)
+          case Function(None, x, eToDo) => eval(env+(x -> eval(env, e2)), eToDo)
 
-          case Function(Some(name),x,eToDo) => eval((env + (x -> v2)) + (name -> Function(None, x, eToDo)), eToDo)
+          case Function(Some(name),x,eToDo) => eval((env + (x -> eval(env, e2))) + (name -> Function(Some(name), x, eToDo)), eToDo)
 
-          case _ => throw DynamicTypeError(e)
-
+          case _ => throw new DynamicTypeError(e)
         }
-
-
     }
   }
     
@@ -265,14 +262,7 @@ object Lab3 extends JsyApplication with Lab3Like {
 
       case If(e1, e2, e3) => If(substitute(e1, v, x), substitute(e2, v, x), substitute(e3, v, x))
 
-      case Call(e1, e2) => e1 match{
-
-        case Function(_, z, eToDo) => if (z==x) Call(e1, substitute(e2, v, x)) else Call(substitute(eToDo, v, x), substitute(eToDo, v, x))
-
-        case _ if !isValue(e1) => Call(substitute(e1, v, x), e2)
-
-        case _ => throw DynamicTypeError(e)
-      }
+      case Call(e1, e2) => Call(substitute(e1, v, x), substitute(e2, v,x))
 
       case Var(y) => if (y==x) v else Var(y)
 
@@ -290,6 +280,7 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
 
       case Unary(uop, e1) if isValue(e1) => uop match {
+
         case Neg => N(-toNumber(e1))
 
         case Not => B(!toBoolean(e1))
@@ -304,7 +295,7 @@ object Lab3 extends JsyApplication with Lab3Like {
         case Seq => e2
       }
 
-      case Binary(bop, Function(_,_,_), _) if bop == Eq || bop == Ne => throw DynamicTypeError(e)
+      case Binary(bop, Function(_,_,_), _) if bop == Eq || bop == Ne => throw new DynamicTypeError(e)
 
       case Binary(bop, e1, e2) if isValue(e1) && isValue(e2) => bop match {
 
@@ -328,12 +319,12 @@ object Lab3 extends JsyApplication with Lab3Like {
                 }
 
           case Eq => e2 match {
-            case Function(_, _, _) => throw DynamicTypeError(e)
+            case Function(_, _, _) => throw new DynamicTypeError(e)
             case _ => B(e1 == e2)
           }
 
           case Ne => e2 match{
-            case Function(_,_,_) => throw DynamicTypeError(e)
+            case Function(_,_,_) => throw new DynamicTypeError(e)
             case _ => B(e1 != e2)
           }
 
@@ -393,7 +384,7 @@ object Lab3 extends JsyApplication with Lab3Like {
         case Function(None, x, eToDo) =>
           substitute(eToDo, e2, x)
 
-        case _ => throw DynamicTypeError(e)
+        case _ => throw new DynamicTypeError(e)
       }
 
 
@@ -416,7 +407,7 @@ object Lab3 extends JsyApplication with Lab3Like {
         if (isValue(e1) && !isValue(e2)) {
           e1 match {
             case Function(_, _, _) => Call(e1, step(e2))
-            case _ => throw DynamicTypeError(e)
+            case _ => throw new DynamicTypeError(e)
           }
         }
 
