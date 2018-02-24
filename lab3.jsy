@@ -1,0 +1,4 @@
+const i = 13;
+const k = function(x) { return i; };
+const l = function(i) { return g(52); };
+jsy.print(l(37));
